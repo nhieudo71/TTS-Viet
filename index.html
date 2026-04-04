@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đọc Văn Bản Tiếng Việt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── THEME TOKENS ──────────────────────────────── */
+:root {
+  --accent:  #6c8fff;
+  --accent2: #a78bfa;
+  --gold:    #fbbf24;
+  --success: #34d399;
+  --danger:  #f87171;
+  --radius:  12px;
+  --tr:      .18s ease;
+}
+[data-theme="dark"] {
+  --bg:      #0f1117;
+  --surface: #181c27;
+  --card:    #1e2335;
+  --border:  #2a3050;
+  --text:    #e8eaf6;
+  --muted:   #7b83a6;
+  --shadow:  rgba(0,0,0,.4);
+}
+[data-theme="light"] {
+  --bg:      #f0f2f8;
+  --surface: #ffffff;
+  --card:    #ffffff;
+  --border:  #d4d8ec;
+  --text:    #1a1d2e;
+  --muted:   #6b7094;
+  --shadow:  rgba(0,0,0,.08);
+}
+
+/* ── RESET ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+  transition: background var(--tr), color var(--tr);
+}
+
+/* ── PAGE SHELL — căn giữa hoàn toàn ───────────── */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 80px;
+}
+
+/* tất cả con của .page đều đúng chiều rộng */
+.page > * {
+  width: 100%;
+  max-width: 1000px;
+}
+
+/* ── TOPBAR ─────────────────────────────────────── */
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 13px 5px 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-family: 'Nunito', sans-serif;
+  transition: all var(--tr);
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.theme-icon { font-size: 15px; line-height: 1; }
+
+/* ── HEADER ─────────────────────────────────────── */
+header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.2rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -.5px;
+}
+header p { color: var(--muted); margin-top: 6px; font-size: 13.5px; }
+
+/* ── API KEY BAR ────────────────────────────────── */
+.apikey-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 13px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px var(--shadow);
+  transition: background var(--tr), border-color var(--tr);
+}
+.apikey-bar label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+}
+.apikey-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+  font-family: monospace;
+}
+.apikey-bar input::placeholder { color: var(--muted); font-family: 'Nunito', sans-serif; font-size: 13.5px; }
+.apikey-status {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background var(--tr);
+}
+.apikey-status.ok  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.apikey-status.err { background: var(--danger);  box-shadow: 0 0 6px var(--danger); }
+
+/* ── MAIN GRID ──────────────────────────────────── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+}
+@media (max-width: 720px) {
+  .main-grid { grid-template-columns: 1fr; }
+  header h1  { font-size: 1.7rem; }
+}
+
+/* ── CARD ───────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 2px 10px var(--shadow);
+  transition: background var(--tr), border-color var(--tr);
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+/* ── TEXT INPUT ─────────────────────────────────── */
+.text-input-area {
+  width: 100%;
+  min-height: 200px;
+  max-height: 380px;
+  resize: vertical;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 13px;
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  font-size: 14.5px;
+  line-height: 1.7;
+  outline: none;
+  transition: border-color var(--tr), background var(--tr);
+}
+.text-input-area:focus { border-color: var(--accent); }
+.text-input-area::placeholder { color: var(--muted); }
+
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.btn-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--tr);
+  font-family: 'Nunito', sans-serif;
+}
+.btn-file:hover { border-color: var(--accent); color: var(--accent); }
+.btn-file input { display: none; }
+.char-count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+
+/* ── HISTORY ────────────────────────────────────── */
+.history-section { margin-top: 18px; }
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.history-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+}
+.btn-clear-history {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all var(--tr);
+}
+.btn-clear-history:hover { border-color: var(--danger); color: var(--danger); }
+.history-list { display: flex; flex-direction: column; gap: 8px; }
+.history-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  cursor: pointer;
+  transition: border-color var(--tr);
+}
+.history-item:hover { border-color: var(--accent); }
+.history-icon {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  background: rgba(108,143,255,.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.history-meta { flex: 1; overflow: hidden; }
+.history-text {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.history-info { font-size: 11px; color: var(--muted); display: flex; gap: 9px; flex-wrap: wrap; }
+.history-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.btn-icon {
+  width: 27px; height: 27px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all var(--tr);
+}
+.btn-icon:hover        { border-color: var(--accent); color: var(--accent); }
+.btn-icon.danger:hover { border-color: var(--danger); color: var(--danger); }
+.empty-history { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+
+/* ── CONTROLS ───────────────────────────────────── */
+.control-group { margin-bottom: 15px; }
+.control-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.control-label .val {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 8px 28px 8px 10px;
+  font-size: 13.5px;
+  font-family: 'Nunito', sans-serif;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237b83a6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color var(--tr), background var(--tr), color var(--tr);
+}
+select:focus { border-color: var(--accent); }
+
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform var(--tr);
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+.tone-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 9px 11px;
+  font-size: 13px;
+  font-family: 'Nunito', sans-serif;
+  outline: none;
+  resize: none;
+  min-height: 60px;
+  line-height: 1.5;
+  transition: border-color var(--tr), background var(--tr);
+}
+.tone-input:focus { border-color: var(--accent); }
+.tone-input::placeholder { color: var(--muted); }
+
+.tone-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.chip {
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all var(--tr);
+}
+.chip:hover, .chip.active {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  background: rgba(167,139,250,.1);
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── CONVERT BUTTON ─────────────────────────────── */
+.btn-convert {
+  width: 100%;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Nunito', sans-serif;
+  cursor: pointer;
+  transition: opacity var(--tr), transform var(--tr);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-convert:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+.btn-convert:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+/* ── RESULT AREA ────────────────────────────────── */
+.result-area { margin-top: 16px; }
+.progress-bar-wrap {
+  background: var(--surface);
+  border-radius: 6px;
+  height: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 6px;
+  width: 0%;
+  transition: width .3s ease;
+}
+.status-msg { font-size: 13px; color: var(--muted); text-align: center; min-height: 18px; }
+.status-msg.error   { color: var(--danger); }
+.status-msg.success { color: var(--success); }
+
+.audio-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 12px;
+  transition: background var(--tr), border-color var(--tr);
+}
+.audio-card audio { width: 100%; margin-bottom: 10px; accent-color: var(--accent); }
+.download-row { display: flex; gap: 8px; }
+.btn-download {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all var(--tr);
+  text-decoration: none;
+}
+.btn-download:hover { border-color: var(--accent); color: var(--accent); background: rgba(108,143,255,.07); }
+.btn-download.gold:hover { border-color: var(--gold); color: var(--gold); background: rgba(251,191,36,.07); }
+
+/* ── SPINNER ────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 15px; height: 15px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+.spinner.show { display: block; }
+
+/* ── SCROLLBAR ──────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">
+      <span class="theme-icon" id="themeIcon">☀️</span>
+      <span id="themeLabel">Giao diện sáng</span>
+    </button>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <h1>🎙 Đọc Văn Bản Tiếng Việt</h1>
+    <p>Chuyển đổi văn bản / file TXT, SRT thành giọng nói — dùng Gemini 2.5 Flash TTS</p>
+  </header>
+
+  <!-- API Key bar -->
+  <div class="apikey-bar">
+    <label>API KEY</label>
+    <input type="password" id="apiKeyInput" placeholder="Dán Google AI Studio API Key vào đây..." autocomplete="off">
+    <div class="apikey-status" id="apiKeyStatus"></div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- LEFT: text + history -->
+    <div>
+      <div class="card">
+        <div class="card-title">✏️ Văn bản đầu vào</div>
+        <textarea class="text-input-area" id="textInput"
+          placeholder="Nhập văn bản tiếng Việt cần đọc...&#10;&#10;Ví dụ: Xin chào! Đây là ứng dụng chuyển văn bản thành giọng nói sử dụng Gemini AI."
+          oninput="updateCharCount()"></textarea>
+        <div class="import-row">
+          <label class="btn-file">📄 Nhập file TXT<input type="file" accept=".txt" onchange="importTxt(this)"></label>
+          <label class="btn-file">🎬 Nhập file SRT<input type="file" accept=".srt" onchange="importSrt(this)"></label>
+          <span class="char-count" id="charCount">0 ký tự</span>
+        </div>
+      </div>
+
+      <div class="history-section">
+        <div class="history-header">
+          <div class="history-title">🕐 Lịch sử chuyển đổi</div>
+          <button class="btn-clear-history" onclick="clearHistory()">Xoá tất cả</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: controls + result -->
+    <div>
+      <div class="card">
+        <div class="card-title">🎛️ Tùy chỉnh giọng đọc</div>
+
+        <div class="control-group">
+          <div class="control-label">Giọng đọc</div>
+          <select id="voiceSelect">
+            <optgroup label="🌸 Giọng nữ">
+              <option value="Aoede">Aoede — Nữ, nhẹ nhàng</option>
+              <option value="Leda">Leda — Nữ, tự nhiên</option>
+              <option value="Zephyr">Zephyr — Nữ, trong sáng</option>
+              <option value="Puck">Puck — Nữ, linh hoạt</option>
+              <option value="Callirrhoe">Callirrhoe — Nữ, ấm áp</option>
+              <option value="Autonoe">Autonoe — Nữ, dịu dàng</option>
+              <option value="Despina">Despina — Nữ, rõ ràng</option>
+              <option value="Erinome">Erinome — Nữ, truyền cảm</option>
+              <option value="Gacrux">Gacrux — Nữ, sâu lắng</option>
+              <option value="Sulafat">Sulafat — Nữ, ấm</option>
+              <option value="Vindemiatrix">Vindemiatrix — Nữ, mạnh mẽ</option>
+            </optgroup>
+            <optgroup label="🎙 Giọng nam">
+              <option value="Kore">Kore — Nam, trầm ấm</option>
+              <option value="Charon">Charon — Nam, rõ</option>
+              <option value="Fenrir">Fenrir — Nam, lôi cuốn</option>
+              <option value="Orus">Orus — Nam, đĩnh đạc</option>
+              <option value="Algenib">Algenib — Nam, tự nhiên</option>
+              <option value="Rasalghul">Rasalghul — Nam, truyền cảm</option>
+              <option value="Achird">Achird — Nam, nhẹ nhàng</option>
+              <option value="Zubenelgenubi">Zubenelgenubi — Nam, sâu</option>
+              <option value="Iocaste">Iocaste — Nam, vừa phải</option>
+              <option value="Umbriel">Umbriel — Nam, ổn định</option>
+              <option value="Achernar">Achernar — Nam, mềm</option>
+              <option value="Sadachbia">Sadachbia — Nam, tươi</option>
+              <option value="Sadaltager">Sadaltager — Nam, rõ ràng</option>
+              <option value="Schedar">Schedar — Nam, trang trọng</option>
+              <option value="Hamal">Hamal — Nam, mạnh</option>
+              <option value="Alnilam">Alnilam — Nam, dứt khoát</option>
+              <option value="Pulcherrima">Pulcherrima — Nam, ân cần</option>
+              <option value="Laomedeia">Laomedeia — Nam, nhẹ</option>
+              <option value="Navi">Navi — Trung tính</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Tốc độ đọc <span class="val" id="speedVal">Bình thường</span></div>
+          <select id="speedSelect" onchange="updateSpeedLabel()">
+            <option value="very slowly">Rất chậm</option>
+            <option value="slowly">Chậm</option>
+            <option value="at a normal pace" selected>Bình thường</option>
+            <option value="quickly">Nhanh</option>
+            <option value="very quickly">Rất nhanh</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Ngắt quảng giữa đoạn <span class="val" id="pauseVal">1.0s</span></div>
+          <input type="range" id="pauseRange" min="0" max="30" value="10" oninput="updatePauseLabel()">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">Phong cách / Tông giọng</div>
+          <textarea class="tone-input" id="toneInput"
+            placeholder="VD: Đọc với giọng ấm áp, chuyên nghiệp, như phát thanh viên..." rows="2"></textarea>
+          <div class="tone-chips">
+            <button class="chip" onclick="setTone(this,'Đọc với giọng ấm áp, tự nhiên, như người kể chuyện')">Kể chuyện</button>
+            <button class="chip" onclick="setTone(this,'Đọc với phong cách chuyên nghiệp, rõ ràng, như phát thanh viên tin tức')">Tin tức</button>
+            <button class="chip" onclick="setTone(this,'Đọc với giọng vui tươi, năng động, đầy năng lượng')">Năng động</button>
+            <button class="chip" onclick="setTone(this,'Đọc với giọng nhẹ nhàng, chậm rãi, thư giãn')">Thư giãn</button>
+            <button class="chip" onclick="setTone(this,'Đọc với phong cách học thuật, nghiêm túc, dứt khoát')">Học thuật</button>
+            <button class="chip" onclick="setTone(this,'Đọc với giọng thì thầm, bí ẩn, huyền bí')">Thì thầm</button>
+          </div>
+        </div>
+
+        <hr>
+
+        <button class="btn-convert" id="convertBtn" onclick="convert()">
+          <div class="spinner" id="spinner"></div>
+          <span id="convertBtnText">🎙 Chuyển đổi ngay</span>
+        </button>
+
+        <!-- Result nằm bên trong card controls -->
+        <div class="result-area" id="resultArea" style="display:none;">
+          <div class="progress-bar-wrap" id="progressWrap" style="display:none;">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="status-msg" id="statusMsg"></div>
+          <div class="audio-card" id="audioCard" style="display:none;">
+            <audio id="audioPlayer" controls></audio>
+            <div class="download-row">
+              <a class="btn-download" id="downloadWav" href="#" download="output.wav">⬇️ Tải WAV</a>
+              <button class="btn-download gold" id="downloadMp3" onclick="downloadMp3()">⬇️ Tải MP3</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+</div><!-- /page -->
+
+<script>
+// ── THEME ────────────────────────────────────────
+const THEME_KEY = 'viet_tts_theme';
+let currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+applyTheme(currentTheme);
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeIcon').textContent  = t === 'dark' ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = t === 'dark' ? 'Giao diện sáng' : 'Giao diện tối';
+  currentTheme = t;
+  localStorage.setItem(THEME_KEY, t);
+}
+
+function toggleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
+
+// ── STATE ────────────────────────────────────────
+let currentWavBlob = null;
+let history = JSON.parse(localStorage.getItem('viet_tts_history') || '[]');
+
+// ── API KEY ──────────────────────────────────────
+const apiKeyInput  = document.getElementById('apiKeyInput');
+const apiKeyStatus = document.getElementById('apiKeyStatus');
+apiKeyInput.value  = localStorage.getItem('viet_tts_apikey') || '';
+updateKeyStatus();
+
+apiKeyInput.addEventListener('input', () => {
+  localStorage.setItem('viet_tts_apikey', apiKeyInput.value.trim());
+  updateKeyStatus();
+});
+
+function updateKeyStatus() {
+  const key = apiKeyInput.value.trim();
+  if (!key) { apiKeyStatus.className = 'apikey-status'; return; }
+  apiKeyStatus.className = 'apikey-status ' + (key.startsWith('AIza') ? 'ok' : 'err');
+}
+
+function getApiKey() { return apiKeyInput.value.trim(); }
+
+// ── TEXT INPUT ───────────────────────────────────
+function updateCharCount() {
+  document.getElementById('charCount').textContent =
+    document.getElementById('textInput').value.length.toLocaleString('vi') + ' ký tự';
+}
+
+function importTxt(input) {
+  const file = input.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = e => { document.getElementById('textInput').value = e.target.result; updateCharCount(); setStatus('✅ Đã nhập file TXT: ' + file.name, 'success'); };
+  r.readAsText(file, 'UTF-8'); input.value = '';
+}
+
+function importSrt(input) {
+  const file = input.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = e => { document.getElementById('textInput').value = parseSrt(e.target.result); updateCharCount(); setStatus('✅ Đã nhập file SRT: ' + file.name + ' — đã loại bỏ timestamp', 'success'); };
+  r.readAsText(file, 'UTF-8'); input.value = '';
+}
+
+function parseSrt(raw) {
+  return raw.split(/\r?\n/).filter(line => {
+    line = line.trim();
+    if (!line) return false;
+    if (/^\d+$/.test(line)) return false;
+    if (/^\d{2}:\d{2}:\d{2}[,\.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,\.]\d{3}/.test(line)) return false;
+    return true;
+  }).join('\n').trim();
+}
+
+// ── CONTROLS ────────────────────────────────────
+function updateSpeedLabel() {
+  const map = { 'very slowly':'Rất chậm','slowly':'Chậm','at a normal pace':'Bình thường','quickly':'Nhanh','very quickly':'Rất nhanh' };
+  document.getElementById('speedVal').textContent = map[document.getElementById('speedSelect').value] || '';
+}
+
+function updatePauseLabel() {
+  document.getElementById('pauseVal').textContent = (document.getElementById('pauseRange').value / 10).toFixed(1) + 's';
+}
+
+function setTone(el, tone) {
+  document.getElementById('toneInput').value = tone;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── STATUS / PROGRESS ───────────────────────────
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg' + (type ? ' ' + type : '');
+  if (msg) document.getElementById('resultArea').style.display = 'block';
+}
+
+function setProgress(pct) { document.getElementById('progressBar').style.width = pct + '%'; }
+function showProgress(show) { document.getElementById('progressWrap').style.display = show ? 'block' : 'none'; }
+
+function setLoading(loading) {
+  document.getElementById('convertBtn').disabled = loading;
+  document.getElementById('spinner').className = 'spinner' + (loading ? ' show' : '');
+  document.getElementById('convertBtnText').textContent = loading ? 'Đang xử lý...' : '🎙 Chuyển đổi ngay';
+}
+
+// ── BUILD PROMPT ────────────────────────────────
+function buildPrompt(text, speed, tone, pause) {
+  let style = '';
+  if (tone) style += tone + '. ';
+  if (speed !== 'at a normal pace') style += `Đọc ${speed}. `;
+  if (pause > 0) style += `Ngắt nghỉ khoảng ${(pause/10).toFixed(1)} giây giữa các đoạn. `;
+  return style
+    ? `${style.trim()}\n\nBây giờ hãy đọc đoạn văn bản sau bằng tiếng Việt:\n\n${text}`
+    : `Đọc đoạn văn bản sau bằng tiếng Việt:\n\n${text}`;
+}
+
+// ── PCM → WAV ───────────────────────────────────
+function pcmToWav(pcmBase64, sr=24000, ch=1, bits=16) {
+  const pcm = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0));
+  const buf = new ArrayBuffer(44 + pcm.length);
+  const v   = new DataView(buf);
+  const ws  = (o, s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  ws(0,'RIFF'); v.setUint32(4,36+pcm.length,true); ws(8,'WAVE'); ws(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,ch,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*ch*(bits/8),true);
+  v.setUint16(32,ch*(bits/8),true); v.setUint16(34,bits,true);
+  ws(36,'data'); v.setUint32(40,pcm.length,true);
+  new Uint8Array(buf,44).set(pcm);
+  return new Blob([buf], { type:'audio/wav' });
+}
+
+// ── CONVERT ─────────────────────────────────────
+async function convert() {
+  const apiKey = getApiKey();
+  if (!apiKey) { setStatus('⚠️ Vui lòng nhập API Key trước!', 'error'); return; }
+  const text = document.getElementById('textInput').value.trim();
+  if (!text)  { setStatus('⚠️ Vui lòng nhập văn bản cần đọc!', 'error'); return; }
+  if (text.length > 8000) { setStatus('⚠️ Văn bản quá dài (tối đa ~8000 ký tự). Hãy chia nhỏ.', 'error'); return; }
+
+  const voice = document.getElementById('voiceSelect').value;
+  const speed = document.getElementById('speedSelect').value;
+  const tone  = document.getElementById('toneInput').value.trim();
+  const pause = parseInt(document.getElementById('pauseRange').value);
+
+  setLoading(true);
+  showProgress(true);
+  document.getElementById('resultArea').style.display = 'block';
+  document.getElementById('audioCard').style.display  = 'none';
+  setProgress(10);
+  setStatus('Đang gửi yêu cầu đến Gemini...');
+  currentWavBlob = null;
+
+  try {
+    setProgress(30);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: buildPrompt(text, speed, tone, pause) }] }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
+          }
+        })
+      }
+    );
+    setProgress(70);
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      const msg = err?.error?.message || `HTTP ${res.status}`;
+      if (res.status===401||res.status===403) throw new Error('API Key không hợp lệ hoặc chưa được cấp quyền.');
+      if (res.status===429) throw new Error('Vượt quá giới hạn yêu cầu. Thử lại sau ít phút.');
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    const inline = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    if (!inline?.data) throw new Error('Gemini không trả về dữ liệu âm thanh. Hãy thử lại.');
+
+    setProgress(90);
+    const pcmBase64 = inline.data;
+    const wavBlob   = pcmToWav(pcmBase64);
+    currentWavBlob  = wavBlob;
+
+    const wavUrl = URL.createObjectURL(wavBlob);
+    const player = document.getElementById('audioPlayer');
+    player.src   = wavUrl;
+    const dl     = document.getElementById('downloadWav');
+    dl.href      = wavUrl;
+    dl.download  = `viet-tts-${Date.now()}.wav`;
+
+    document.getElementById('audioCard').style.display = 'block';
+    setProgress(100);
+    setStatus('✅ Chuyển đổi thành công!', 'success');
+    player.play().catch(()=>{});
+
+    saveHistory({ id:Date.now(), text:text.substring(0,120), voice, speed, tone,
+      pause:(pause/10).toFixed(1)+'s', time:new Date().toLocaleString('vi-VN'), wavBase64:pcmBase64 });
+
+  } catch(err) {
+    console.error(err);
+    setStatus('❌ Lỗi: ' + err.message, 'error');
+    setProgress(0);
+  } finally {
+    setLoading(false);
+    setTimeout(() => showProgress(false), 1500);
+  }
+}
+
+// ── DOWNLOAD MP3 ─────────────────────────────────
+async function downloadMp3() {
+  if (!currentWavBlob) { setStatus('⚠️ Chưa có file âm thanh.', 'error'); return; }
+  const btn = document.getElementById('downloadMp3');
+  btn.textContent = '⏳ Đang xuất...'; btn.disabled = true;
+  try {
+    const ab   = await currentWavBlob.arrayBuffer();
+    const ctx  = new (window.AudioContext||window.webkitAudioContext)();
+    const abuf = await ctx.decodeAudioData(ab);
+    const off  = new OfflineAudioContext(abuf.numberOfChannels, abuf.length, abuf.sampleRate);
+    const s    = off.createBufferSource(); s.buffer=abuf; s.connect(off.destination); s.start(0);
+    const ren  = await off.startRendering();
+    const dest = ctx.createMediaStreamDestination();
+    const s2   = ctx.createBufferSource(); s2.buffer=ren; s2.connect(dest); s2.connect(ctx.destination);
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/ogg;codecs=opus';
+    const rec  = new MediaRecorder(dest.stream,{mimeType:mime});
+    const cks  = [];
+    rec.ondataavailable = e => cks.push(e.data);
+    rec.onstop = () => {
+      const ext = mime.includes('webm')?'webm':'ogg';
+      const url = URL.createObjectURL(new Blob(cks,{type:mime}));
+      const a   = document.createElement('a'); a.href=url; a.download=`viet-tts-${Date.now()}.${ext}`; a.click();
+      URL.revokeObjectURL(url); btn.innerHTML='⬇️ Tải MP3'; btn.disabled=false;
+    };
+    rec.start(); s2.start(0);
+    setTimeout(()=>rec.stop(), ren.duration*1000+300);
+  } catch(err) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(currentWavBlob); a.download=`viet-tts-${Date.now()}.wav`; a.click();
+    btn.innerHTML='⬇️ Tải MP3'; btn.disabled=false;
+    setStatus('⚠️ Trình duyệt không hỗ trợ MP3 — đã tải WAV thay thế.','');
+  }
+}
+
+// ── HISTORY ──────────────────────────────────────
+function saveHistory(entry) {
+  history.unshift(entry);
+  if (history.length > 20) history = history.slice(0,20);
+  localStorage.setItem('viet_tts_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) { list.innerHTML='<div class="empty-history">📭 Chưa có lịch sử chuyển đổi nào</div>'; return; }
+  list.innerHTML = history.map((item,i) => `
+    <div class="history-item" onclick="restoreHistory(${i})">
+      <div class="history-icon">🎙</div>
+      <div class="history-meta">
+        <div class="history-text">${escHtml(item.text)}${item.text.length>=120?'…':''}</div>
+        <div class="history-info">
+          <span>🗣 ${item.voice}</span><span>⏱ ${item.speed}</span><span>⏸ ${item.pause}</span><span>🕐 ${item.time}</span>
+        </div>
+      </div>
+      <div class="history-actions">
+        <button class="btn-icon" title="Tải WAV" onclick="event.stopPropagation();redownloadHistory(${i})">⬇️</button>
+        <button class="btn-icon danger" title="Xoá" onclick="event.stopPropagation();deleteHistory(${i})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function restoreHistory(i) {
+  const item = history[i];
+  document.getElementById('textInput').value = item.text.endsWith('…') ? item.text.slice(0,-1) : item.text;
+  document.getElementById('voiceSelect').value = item.voice;
+  if (item.tone) document.getElementById('toneInput').value = item.tone;
+  updateCharCount();
+  setStatus('✅ Đã khôi phục cài đặt từ lịch sử.', 'success');
+}
+
+function redownloadHistory(i) {
+  const item = history[i]; if (!item.wavBase64) return;
+  const url = URL.createObjectURL(pcmToWav(item.wavBase64));
+  const a = document.createElement('a'); a.href=url; a.download=`viet-tts-history-${item.id}.wav`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function deleteHistory(i) {
+  history.splice(i,1);
+  localStorage.setItem('viet_tts_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('Xoá toàn bộ lịch sử chuyển đổi?')) return;
+  history=[]; localStorage.removeItem('viet_tts_history'); renderHistory();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ─────────────────────────────────────────
+updateCharCount();
+updatePauseLabel();
+renderHistory();
+</script>
+</body>
+</html>
