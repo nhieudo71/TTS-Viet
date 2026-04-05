@@ -660,7 +660,42 @@ function toggleTheme() { applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
 
 // ── STATE ────────────────────────────────────────
 let currentWavBlob = null;
-let history = JSON.parse(localStorage.getItem('viet_tts_history') || '[]');
+let history = [];   // in-memory cache, backed by IndexedDB
+
+// ── INDEXEDDB ────────────────────────────────────
+const DB_NAME    = 'viet_tts_db';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('history')) {
+        d.createObjectStore('history', { keyPath: 'id' });
+      }
+      if (!d.objectStoreNames.contains('audio')) {
+        d.createObjectStore('audio', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+const dbTx = (store, mode, fn) => new Promise((res, rej) => {
+  const tx  = db.transaction(store, mode);
+  const req = fn(tx.objectStore(store));
+  req.onsuccess = e => res(e.target.result);
+  req.onerror   = e => rej(e.target.error);
+});
+
+const dbPut    = (store, val) => dbTx(store, 'readwrite', s => s.put(val));
+const dbGet    = (store, key) => dbTx(store, 'readonly',  s => s.get(key));
+const dbDel    = (store, key) => dbTx(store, 'readwrite', s => s.delete(key));
+const dbGetAll = store        => dbTx(store, 'readonly',  s => s.getAll());
+const dbClear  = store        => dbTx(store, 'readwrite', s => s.clear());
 
 // ── API KEY ──────────────────────────────────────
 const apiKeyInput  = document.getElementById('apiKeyInput');
@@ -838,8 +873,8 @@ async function convert() {
     setStatus('✅ Chuyển đổi thành công!', 'success');
     player.play().catch(()=>{});
 
-    saveHistory({ id:Date.now(), text:text.substring(0,120), voice, speed, tone,
-      pause:(pause/10).toFixed(1)+'s', time:new Date().toLocaleString('vi-VN'), wavBase64:pcmBase64 });
+    await saveHistory({ id:Date.now(), text:text.substring(0,120), voice, speed, speedRaw:speed, tone,
+      pause:(pause/10).toFixed(1)+'s', time:new Date().toLocaleString('vi-VN') }, wavBlob);
 
   } catch(err) {
     console.error(err);
@@ -885,11 +920,14 @@ async function downloadMp3() {
   }
 }
 
-// ── HISTORY ──────────────────────────────────────
-function saveHistory(entry) {
+// ── HISTORY (IndexedDB) ──────────────────────────
+async function saveHistory(entry, wavBlob) {
+  // Lưu metadata
+  await dbPut('history', entry);
+  // Lưu audio blob (không giới hạn dung lượng)
+  if (wavBlob) await dbPut('audio', { id: entry.id, blob: wavBlob });
+  // Cập nhật in-memory cache (mới nhất lên đầu)
   history.unshift(entry);
-  if (history.length > 20) history = history.slice(0,20);
-  localStorage.setItem('viet_tts_history', JSON.stringify(history));
   renderHistory();
 }
 
@@ -906,37 +944,52 @@ function renderHistory() {
         </div>
       </div>
       <div class="history-actions">
-        <button class="btn-icon" title="Tải WAV" onclick="event.stopPropagation();redownloadHistory(${i})">⬇️</button>
-        <button class="btn-icon danger" title="Xoá" onclick="event.stopPropagation();deleteHistory(${i})">🗑</button>
+        <button class="btn-icon" title="Tải WAV" onclick="event.stopPropagation();redownloadHistory(${item.id})">⬇️</button>
+        <button class="btn-icon" title="Dùng lại cài đặt" onclick="event.stopPropagation();restoreHistory(${i})">🔄</button>
+        <button class="btn-icon danger" title="Xoá" onclick="event.stopPropagation();deleteHistory(${item.id},${i})">🗑</button>
       </div>
     </div>`).join('');
 }
 
 function restoreHistory(i) {
   const item = history[i];
+  if (!item) return;
   document.getElementById('textInput').value = item.text.endsWith('…') ? item.text.slice(0,-1) : item.text;
   document.getElementById('voiceSelect').value = item.voice;
-  if (item.tone) document.getElementById('toneInput').value = item.tone;
+  document.getElementById('toneInput').value = item.tone || '';
+  document.getElementById('speedSelect').value = item.speedRaw || 'at a normal pace';
   updateCharCount();
+  updateSpeedLabel();
   setStatus('✅ Đã khôi phục cài đặt từ lịch sử.', 'success');
 }
 
-function redownloadHistory(i) {
-  const item = history[i]; if (!item.wavBase64) return;
-  const url = URL.createObjectURL(pcmToWav(item.wavBase64));
-  const a = document.createElement('a'); a.href=url; a.download=`viet-tts-history-${item.id}.wav`; a.click();
-  URL.revokeObjectURL(url);
+async function redownloadHistory(id) {
+  try {
+    const row = await dbGet('audio', id);
+    if (!row || !row.blob) {
+      setStatus('⚠️ Không tìm thấy audio cho bản ghi này.', 'error');
+      return;
+    }
+    const url = URL.createObjectURL(row.blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = `viet-tts-${id}.wav`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch(err) {
+    setStatus('❌ Lỗi tải audio: ' + err.message, 'error');
+  }
 }
 
-function deleteHistory(i) {
-  history.splice(i,1);
-  localStorage.setItem('viet_tts_history', JSON.stringify(history));
+async function deleteHistory(id, i) {
+  history.splice(i, 1);
+  await Promise.all([dbDel('history', id), dbDel('audio', id)]);
   renderHistory();
 }
 
-function clearHistory() {
-  if (!confirm('Xoá toàn bộ lịch sử chuyển đổi?')) return;
-  history=[]; localStorage.removeItem('viet_tts_history'); renderHistory();
+async function clearHistory() {
+  if (!confirm('Xoá toàn bộ lịch sử và audio đã lưu?')) return;
+  history = [];
+  await Promise.all([dbClear('history'), dbClear('audio')]);
+  renderHistory();
 }
 
 function escHtml(str) {
@@ -944,9 +997,38 @@ function escHtml(str) {
 }
 
 // ── INIT ─────────────────────────────────────────
-updateCharCount();
-updatePauseLabel();
-renderHistory();
+async function init() {
+  try {
+    await openDB();
+
+    // Migrate từ localStorage cũ (nếu có)
+    try {
+      const raw = localStorage.getItem('viet_tts_history');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Strip wavBase64 và migrate sang IndexedDB
+        for (const item of parsed) {
+          const { wavBase64, ...meta } = item;
+          await dbPut('history', meta);
+        }
+        localStorage.removeItem('viet_tts_history');
+      }
+    } catch(e) { /* bỏ qua lỗi migrate */ }
+
+    // Load history từ IndexedDB, sort mới nhất lên đầu
+    const rows = await dbGetAll('history');
+    history = rows.sort((a, b) => b.id - a.id);
+  } catch(err) {
+    console.error('IndexedDB error:', err);
+    history = [];
+  }
+
+  updateCharCount();
+  updatePauseLabel();
+  renderHistory();
+}
+
+init();
 </script>
 </body>
 </html>
